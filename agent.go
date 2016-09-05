@@ -3,11 +3,12 @@ package force
 import "math"
 
 type Agent struct {
-	Position Point
-	Target   Point
-	Padding  float64
-	Speed    float64
-	Reverse  bool
+	Position  Point
+	Target    Point
+	Direction Point
+	Padding   float64
+	Speed     float64
+	Reverse   bool
 }
 
 func (agent *Agent) desiredDirection(grid *Grid, agents []*Agent) Point {
@@ -23,7 +24,7 @@ func (agent *Agent) desiredDirection(grid *Grid, agents []*Agent) Point {
 }
 
 func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) Point {
-	const e = 4
+	const e = 2
 	desired := agent.desiredDirection(grid, agents)
 	direction := desired
 	for i, other := range agents {
@@ -38,7 +39,9 @@ func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) Point {
 		p := agent.Padding + other.Padding
 		m := math.Pow(p, e) / math.Pow(l, e)
 		if i < index {
-			m *= 4
+			m *= 5
+		} else {
+			m *= 6
 		}
 		direction = direction.Add(d.MulScalar(m))
 	}
@@ -56,5 +59,6 @@ func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) Point {
 	l := direction.Length()
 	l = math.Max(0.5, l)
 	l = math.Min(1, l)
+	l = 1
 	return direction.Normalize().MulScalar(l)
 }

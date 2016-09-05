@@ -28,7 +28,7 @@ func NewModel() *Model {
 	}
 	var agents []*Agent
 	seen := make(map[IntPoint]bool)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 250; i++ {
 		var x, y int
 		for {
 			x, y = grid.RandomEmptyCell()
@@ -42,7 +42,7 @@ func NewModel() *Model {
 		agent.Position = Point{float64(x) + rand.Float64() - 0.5, float64(y) + rand.Float64() - 0.5}
 		agent.Target = Point{float64(tx), float64(ty)}
 		agent.Padding = 0.2
-		agent.Speed = 2
+		agent.Speed = 1
 		agents = append(agents, &agent)
 	}
 	return &Model{grid, agents}
@@ -58,7 +58,9 @@ func (model *Model) Step(t, dt float64) {
 func (model *Model) step(dt float64) {
 	vectors := make([]Point, len(model.Agents))
 	for i, agent := range model.Agents {
-		vectors[i] = agent.direction(model.Grid, model.Agents, i)
+		d := agent.direction(model.Grid, model.Agents, i)
+		agent.Direction = agent.Direction.Sub(agent.Direction.Sub(d).MulScalar(0.075))
+		vectors[i] = agent.Direction
 	}
 	for i, agent := range model.Agents {
 		v := vectors[i].MulScalar(dt * agent.Speed)
@@ -105,7 +107,7 @@ func (model *Model) Draw(w, h int, mx, my float64) image.Image {
 			x, y := p.X*s+s/2, p.Y*s+s/2
 			dc.LineTo(x, y)
 		}
-		dc.SetRGBA(1, 0, 0, 0.05)
+		dc.SetRGBA(1, 0, 0, 0.025)
 		dc.SetLineWidth(s / 2)
 		dc.Stroke()
 	}
@@ -122,6 +124,20 @@ func (model *Model) Draw(w, h int, mx, my float64) image.Image {
 		// }
 		dc.Fill()
 	}
+
+	// draw directions
+	for _, agent := range model.Agents {
+		point := agent.Position
+		radius := agent.Padding * s
+		direction := agent.Direction.Normalize()
+		x1, y1 := point.X*s+s/2, point.Y*s+s/2
+		x2 := x1 + direction.X*radius
+		y2 := y1 + direction.Y*radius
+		dc.DrawLine(x1, y1, x2, y2)
+	}
+	dc.SetRGB(1, 1, 1)
+	dc.SetLineWidth(3)
+	dc.Stroke()
 
 	return dc.Image()
 }
