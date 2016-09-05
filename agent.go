@@ -6,6 +6,7 @@ type Agent struct {
 	Position  Point
 	Target    Point
 	Direction Point
+	Pointer   Point
 	Padding   float64
 	Speed     float64
 	Reverse   bool
@@ -23,8 +24,8 @@ func (agent *Agent) desiredDirection(grid *Grid, agents []*Agent) Point {
 	return b.Sub(a).Normalize()
 }
 
-func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) Point {
-	const e = 2
+func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) (Point, Point) {
+	const e = 3
 	desired := agent.desiredDirection(grid, agents)
 	direction := desired
 	for i, other := range agents {
@@ -53,12 +54,12 @@ func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) Point {
 		}
 		p := agent.Padding
 		m := math.Pow(p, e) / math.Pow(l, e)
-		direction = direction.Add(d.MulScalar(m * 4))
+		direction = direction.Add(d.MulScalar(m * 2))
 	}
 	agent.Reverse = desired.Dot(direction) < 0
 	l := direction.Length()
-	l = math.Max(0.5, l)
 	l = math.Min(1, l)
-	l = 1
-	return direction.Normalize().MulScalar(l)
+	l = math.Max(0.2, l)
+	direction = direction.Normalize().MulScalar(l)
+	return desired, direction
 }

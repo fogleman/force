@@ -111,7 +111,10 @@ func (g *Grid) Search(src, dst IntPoint, agents []*Agent) []IntPoint {
 	}
 	for _, agent := range agents {
 		p := agent.Position.IntPoint()
-		g.CostGrid[g.i(p.X, p.Y)] += 0
+		if p.X < 0 || p.Y < 0 || p.X >= g.W || p.Y >= g.H {
+			continue
+		}
+		g.CostGrid[g.i(p.X, p.Y)] += 0.25
 	}
 	result := astar.Search(g, s, d)
 	points := make([]IntPoint, len(result.Nodes))
