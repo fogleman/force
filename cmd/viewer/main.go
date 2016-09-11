@@ -46,7 +46,7 @@ func main() {
 		previous = t
 		model.Step(t, dt)
 		x, y := window.GetCursorPos()
-		im := model.Draw(1024, 1024, x, y)
+		im := model.Draw(1600, 1600, x, y)
 		window.SetImage(im)
 		glfw.PollEvents()
 	}

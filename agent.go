@@ -39,8 +39,8 @@ func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) (Point, Po
 		}
 		p := agent.Padding + other.Padding
 		m := math.Pow(p, e) / math.Pow(l, e)
-		if i < index {
-			m *= 5
+		if i > index {
+			m *= 4
 		} else {
 			m *= 6
 		}
