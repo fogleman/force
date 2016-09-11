@@ -1,35 +1,71 @@
 package force
 
 import (
-	"fmt"
 	"image"
 	"math"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/fogleman/gg"
+	"github.com/ojrac/opensimplex-go"
 )
 
+func noise(source *opensimplex.Noise, n int, x, y, scale float64) float64 {
+	maxAmp := 0.0
+	amp := 1.0
+	freq := scale
+	noise := 0.0
+
+	for i := 0; i < n; i++ {
+		noise += (source.Eval2(x*freq, y*freq) + 0.8) / 1.6 * amp
+		maxAmp += amp
+		amp *= 0.5
+		freq *= 2
+	}
+
+	noise /= maxAmp
+	return noise
+}
+
+type Spot struct {
+	Point
+	Time time.Time
+}
+
 type Model struct {
-	Grid    *Grid
-	Agents  []*Agent
-	Spots   []IntPoint
-	Targets int
+	Grid   *Grid
+	Agents []*Agent
+	Spots  []*Spot
 }
 
 func NewModel() *Model {
-	grid := NewGrid(32, 32)
+	const w = 64
+	const h = 64
+	grid := NewGrid(w, h)
 
-	spots := []IntPoint{
-		{2, 2},
-		{29, 2},
-		{2, 29},
-		{29, 29},
-		{16, 16},
-		{2, 16},
-		{16, 2},
-		{16, 29},
-		{29, 16},
+	const inset = 6
+	// spots := []*Spot{
+	// 	{Point{inset, inset}, time.Now()},
+	// 	{Point{w - inset - 1, inset}, time.Now()},
+	// 	{Point{inset, h - inset - 1}, time.Now()},
+	// 	{Point{w - inset - 1, h - inset - 1}, time.Now()},
+	// 	{Point{w / 2, h / 2}, time.Now()},
+	// 	{Point{inset, h / 2}, time.Now()},
+	// 	{Point{w / 2, inset}, time.Now()},
+	// 	{Point{w / 2, h - inset - 1}, time.Now()},
+	// 	{Point{w - inset - 1, h / 2}, time.Now()},
+	// }
+
+	var spots []*Spot
+	for i := 0; i < 4; i++ {
+		x := rand.Intn(w)
+		y := rand.Intn(h)
+		if x < inset || y < inset || x >= w-inset || y >= h-inset {
+			i--
+			continue
+		}
+		spots = append(spots, &Spot{Point{float64(x), float64(y)}, time.Now()})
 	}
 
 	for x := 0; x < grid.W; x++ {
@@ -40,23 +76,41 @@ func NewModel() *Model {
 		grid.AddWall(0, y)
 		grid.AddWall(grid.W-1, y)
 	}
-	for i := 0; i < 100; i++ {
-		x, y := grid.RandomEmptyCell()
-		ok := true
-		for _, spot := range spots {
-			if math.Abs(float64(x-spot.X)) <= 2 && math.Abs(float64(y-spot.Y)) <= 2 {
-				ok = false
+	source := opensimplex.NewWithSeed(time.Now().UTC().UnixNano())
+	for x := 1; x < grid.W-1; x++ {
+		for y := 1; y < grid.H-1; y++ {
+			ok := true
+			for _, spot := range spots {
+				if math.Abs(float64(x)-spot.Point.X) <= 4 && math.Abs(float64(y)-spot.Point.Y) <= 4 {
+					ok = false
+				}
+			}
+			if !ok {
+				continue
+			}
+			w := noise(source, 3, float64(x), float64(y), 0.3)
+			if w > 0.7 {
+				grid.AddWall(x, y)
 			}
 		}
-		if !ok {
-			i--
-			continue
-		}
-		grid.AddWall(x, y)
 	}
+	// for i := 0; i < 100; i++ {
+	// 	x, y := grid.RandomEmptyCell()
+	// 	ok := true
+	// 	for _, spot := range spots {
+	// 		if math.Abs(float64(x)-spot.Point.X) <= 2 && math.Abs(float64(y)-spot.Point.Y) <= 2 {
+	// 			ok = false
+	// 		}
+	// 	}
+	// 	if !ok {
+	// 		i--
+	// 		continue
+	// 	}
+	// 	grid.AddWall(x, y)
+	// }
 	var agents []*Agent
 	seen := make(map[IntPoint]bool)
-	for i := 0; i < 400; i++ {
+	for i := 0; i < 200; i++ {
 		var x, y int
 		for {
 			x, y = grid.RandomEmptyCell()
@@ -67,17 +121,15 @@ func NewModel() *Model {
 		seen[IntPoint{x, y}] = true
 		agent := Agent{}
 		agent.Position = Point{float64(x) + rand.Float64() - 0.5, float64(y) + rand.Float64() - 0.5}
-		agent.Target = spots[rand.Intn(len(spots))].Point()
-		agent.Padding = 0.2
-		agent.Speed = 2
+		agent.Target = spots[rand.Intn(len(spots))]
+		agent.Padding = 0.4
+		agent.Speed = 4
 		agents = append(agents, &agent)
 	}
-	return &Model{grid, agents, spots, 0}
+	return &Model{grid, agents, spots}
 }
 
 func (model *Model) Step(t, dt float64) {
-	tps := float64(model.Targets) / t
-	fmt.Printf("%.1f, %.1f\n", t, tps)
 	const sps = 60
 	n := int(math.Ceil(sps * dt))
 	for i := 0; i < n; i++ {
@@ -86,7 +138,7 @@ func (model *Model) Step(t, dt float64) {
 }
 
 func (model *Model) step(dt float64) {
-	const alpha = 0.08
+	const alpha = 0.1
 	vectors := make([]Point, len(model.Agents))
 	var wg sync.WaitGroup
 	for i, agent := range model.Agents {
@@ -104,9 +156,9 @@ func (model *Model) step(dt float64) {
 	for i, agent := range model.Agents {
 		v := vectors[i].MulScalar(dt * agent.Speed)
 		agent.Position = agent.Position.Add(v)
-		if agent.Target.Sub(agent.Position).Length() < 0.75 {
-			agent.Target = model.Spots[rand.Intn(len(model.Spots))].Point()
-			model.Targets++
+		if agent.Target.Sub(agent.Position).Length() < 1 {
+			agent.Target.Time = time.Now()
+			agent.Target = model.Spots[rand.Intn(len(model.Spots))]
 		}
 	}
 	model.Grid.UpdateCost(model.Agents)
@@ -141,11 +193,17 @@ func (model *Model) Draw(w, h int, mx, my float64) image.Image {
 
 	// draw spots
 	for _, spot := range model.Spots {
-		p := spot.Point()
+		p := spot.Point
 		dc.DrawCircle(p.X*s+s/2, p.Y*s+s/2, s/2)
+		d := time.Since(spot.Time).Seconds()
+		d = math.Max(0, 1-d)
+		d = math.Pow(d, 2)
+		dc.SetRGBA(1, 0, 0, 1)
+		dc.FillPreserve()
+		dc.SetRGBA(1, 0, 0, d)
+		dc.SetLineWidth(s / 4)
+		dc.Stroke()
 	}
-	dc.SetRGBA(1, 0, 0, 0.5)
-	dc.Fill()
 
 	// draw paths
 	for _, agent := range model.Agents {
@@ -189,7 +247,7 @@ func (model *Model) Draw(w, h int, mx, my float64) image.Image {
 		dc.DrawLine(x1, y1, x2, y2)
 	}
 	dc.SetRGB(1, 1, 1)
-	dc.SetLineWidth(s / 12)
+	dc.SetLineWidth(s / 6)
 	dc.Stroke()
 
 	return dc.Image()

@@ -4,7 +4,7 @@ import "math"
 
 type Agent struct {
 	Position  Point
-	Target    Point
+	Target    *Spot
 	Direction Point
 	Pointer   Point
 	Padding   float64
@@ -40,9 +40,9 @@ func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) (Point, Po
 		p := agent.Padding + other.Padding
 		m := math.Pow(p, e) / math.Pow(l, e)
 		if i > index {
-			m *= 4
+			m *= 2
 		} else {
-			m *= 6
+			m *= 4
 		}
 		direction = direction.Add(d.MulScalar(m))
 	}
@@ -54,7 +54,7 @@ func (agent *Agent) direction(grid *Grid, agents []*Agent, index int) (Point, Po
 		}
 		p := agent.Padding
 		m := math.Pow(p, e) / math.Pow(l, e)
-		direction = direction.Add(d.MulScalar(m * 2))
+		direction = direction.Add(d.MulScalar(m * 1))
 	}
 	agent.Reverse = desired.Dot(direction) < 0
 	l := direction.Length()

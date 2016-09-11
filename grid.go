@@ -119,7 +119,7 @@ func (g *Grid) UpdateCost(agents []*Agent) {
 		if p.X < 0 || p.Y < 0 || p.X >= g.W || p.Y >= g.H {
 			continue
 		}
-		g.CostGrid[g.i(p.X, p.Y)] += 0.5
+		g.CostGrid[g.i(p.X, p.Y)] += 1
 	}
 }
 
